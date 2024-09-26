@@ -11,7 +11,7 @@ Shader "Unlit/Cloud"
     {
         // No culling or depth
         Cull Off ZWrite Off ZTest Always
-        Blend One OneMinusSrcAlpha // Additive blending
+        Blend SrcAlpha OneMinusSrcAlpha // Additive blending
         Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "LightMode" = "ForwardBase" }
         
         Pass
@@ -88,7 +88,7 @@ Shader "Unlit/Cloud"
                     totalDensity += density * stepSize;
                     position += dirToLight * stepSize;
                 }
-                float transmittance = beer(totalDensity * 3);
+                float transmittance = beerPowder(totalDensity * 10); // use beer powder here because this is light
                 return 0.2 + transmittance * 0.8; // hard coded for now
             }
 
@@ -103,19 +103,18 @@ Shader "Unlit/Cloud"
                 float stepSize = _StepSize;
                 float totalDistance = 0;
                 float lightEnergy = 0;
-                float totalDensity = 0;
+                float transmittance = 1;
                 
                 int stepCount = 0;
+                int maxSteps = 100;
                 while (totalDistance < distInBox) {
-                    int maxSteps = 100;
-                    // currently hard coded for unit cube
                     stepCount++;
-                    float density = tex3D(_CloudTexture, currentPosition + float3(0.5, 0.5, 0.5)).r;
-                    totalDensity += density * stepSize;
+                    float density = tex3D(_CloudTexture, currentPosition + float3(0.5, 0.5, 0.5)).r;// currently hard coded for unit cube
                 
-                    float currentTransmittance = beerPowder(totalDensity);
-                    float lightTransmittance = lightMarch(currentPosition);
-                    lightEnergy += lightTransmittance * density * stepSize * currentTransmittance;
+                    float currentTransmittance = beer(density * stepSize * 2); //multiplier hard coded
+                    float luminance = lightMarch(currentPosition);
+                    lightEnergy += luminance * density * stepSize * transmittance;
+                    transmittance *= currentTransmittance;
                 
                     if (stepCount >= maxSteps) {
                         break;
@@ -124,8 +123,9 @@ Shader "Unlit/Cloud"
                     totalDistance += stepSize;
                     currentPosition += rayDir * stepSize;
                 }
-                //TODO: shadows are not quite right yet
-                return _CloudColor * lightEnergy + _BaseColor * (1 - beer(totalDensity));
+                float alpha = 1 - transmittance;
+                float4 finalColor = _CloudColor * lightEnergy + _BaseColor * (1 - lightEnergy);
+                return fixed4(finalColor.rgb, alpha);
             }
             ENDCG
         }

@@ -88,7 +88,7 @@ Shader "Unlit/Cloud"
                     totalDensity += density * stepSize;
                     position += dirToLight * stepSize;
                 }
-                float transmittance = beerPowder(totalDensity * 10); // use beer powder here because this is light
+                float transmittance = beerPowder(totalDensity * 10  ); // use beer powder here because this is light
                 return 0.2 + transmittance * 0.8; // hard coded for now
             }
 
@@ -102,7 +102,7 @@ Shader "Unlit/Cloud"
                 float3 currentPosition = rayOrigin + rayDir * distToBox;
                 float stepSize = _StepSize;
                 float totalDistance = 0;
-                float lightEnergy = 0;
+                float lightEnergy = 0.5;
                 float transmittance = 1;
                 
                 int stepCount = 0;

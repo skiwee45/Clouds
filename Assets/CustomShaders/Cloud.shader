@@ -24,6 +24,7 @@ Shader "Unlit/Cloud"
 
             // Maximum number of raymarching samples
             #define MAX_STEP_COUNT 128
+            // #define PI 3.14159265359
 
             struct meshdata
             {
@@ -53,6 +54,11 @@ Shader "Unlit/Cloud"
             sampler3D _CloudTexture;
             float _StepSize;
 
+            //constants
+            static const float PI = 3.14159265359;
+
+            // axis aligned bounding box
+            // never returns negative distance
             float2 intersectAABB(float3 rayOrigin, float3 rayDir, float3 boxMin, float3 boxMax) {
                 float3 tMin = (boxMin - rayOrigin) / rayDir;
                 float3 tMax = (boxMax - rayOrigin) / rayDir;
@@ -77,10 +83,17 @@ Shader "Unlit/Cloud"
                 return beer(dst) * powder(dst);
             }
 
+            float hg(float cosTheta, float g)
+            {
+                // with a g=0.5, range is 0.02 (cam and sun same dir) to 0.48 (cloud between cam and sun)
+                float g2 = g*g;
+                return (1 - g2) / pow(1 + g2 - 2*g*cosTheta, 1.5) / (4 * PI);
+            }
+
             float lightMarch(float3 position)
             {
-                float3 dirToLight = _WorldSpaceLightPos0.xyz; // direction to light, this needs forward rendering mode
-                float distInBox = intersectAABB(position, dirToLight, float3(-1, -1, -1) / 2, float3(1, 1, 1) / 2).y;
+                float3 dirToLight = _WorldSpaceLightPos0.xyz; // direction TO light, this needs forward rendering mode
+                float distInBox = intersectAABB(position, dirToLight, float3(-2, -2, -2) / 2, float3(2, 2, 2) / 2).y;
                 float stepSize = distInBox / 10;
                 float totalDensity = 0;
                 for (int step = 0; step < 10; step++) {
@@ -94,6 +107,7 @@ Shader "Unlit/Cloud"
 
             fixed4 frag (v2f p) : SV_Target
             {
+                // TODO: for some reason, camera inside the box makes cloud much darker
                 float3 rayOrigin = _WorldSpaceCameraPos.xyz;
                 float3 rayDir = normalize(p.worldPos - rayOrigin);
                 float2 t = intersectAABB(rayOrigin, rayDir, float3(-1, -1, -1) / 2, float3(1, 1, 1) / 2);
@@ -109,6 +123,8 @@ Shader "Unlit/Cloud"
                 int maxSteps = 100;
                 while (totalDistance < distInBox) {
                     stepCount++;
+
+                    // sample textures is from (0,0,0) to (1,1,1)
                     float density = tex3D(_CloudTexture, currentPosition + float3(0.5, 0.5, 0.5)).r;// currently hard coded for unit cube
                 
                     float currentTransmittance = beer(density * stepSize * 2); //multiplier hard coded
@@ -123,6 +139,9 @@ Shader "Unlit/Cloud"
                     totalDistance += stepSize;
                     currentPosition += rayDir * stepSize;
                 }
+                float cosAngle = dot(rayDir, _WorldSpaceLightPos0.xyz);
+                float phase = hg(cosAngle, 0.5) * 0.5 + 0.95; // TODO: tweak
+                lightEnergy *= phase;
                 float alpha = 1 - transmittance;
                 float4 finalColor = _CloudColor * lightEnergy + _BaseColor * (1 - lightEnergy);
                 return fixed4(finalColor.rgb, alpha);

@@ -93,8 +93,8 @@ Shader "Unlit/Cloud"
             float lightMarch(float3 position)
             {
                 float3 dirToLight = _WorldSpaceLightPos0.xyz; // direction TO light, this needs forward rendering mode
-                float distInBox = intersectAABB(position, dirToLight, float3(-2, -2, -2) / 2, float3(2, 2, 2) / 2).y;
-                float stepSize = distInBox / 10;
+                float distInBox = intersectAABB(position, dirToLight, float3(-1, -1, -1) / 2, float3(1, 1, 1) / 2).y;
+                float stepSize = distInBox / 10; // hard coded
                 float totalDensity = 0;
                 for (int step = 0; step < 10; step++) {
                     float density = tex3D(_CloudTexture, position + float3(0.5, 0.5, 0.5)).r;
@@ -107,10 +107,10 @@ Shader "Unlit/Cloud"
 
             fixed4 frag (v2f p) : SV_Target
             {
-                // TODO: for some reason, camera inside the box makes cloud much darker
+                // Camera inside box darker is just because of unity
                 float3 rayOrigin = _WorldSpaceCameraPos.xyz;
                 float3 rayDir = normalize(p.worldPos - rayOrigin);
-                float2 t = intersectAABB(rayOrigin, rayDir, float3(-1, -1, -1) / 2, float3(1, 1, 1) / 2);
+                float2 t = intersectAABB(rayOrigin, rayDir, float3(-1, -1, -1), float3(1, 1, 1));
                 float distToBox = t.x;
                 float distInBox = t.y;
                 float3 currentPosition = rayOrigin + rayDir * distToBox;

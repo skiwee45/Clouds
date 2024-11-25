@@ -1,4 +1,5 @@
 #pragma kernel CSWorley3D
+#pragma kernel CSRemapPerlin
 
 // adapted from https://github.com/jushii/WorleyNoise
 
@@ -11,6 +12,8 @@ StructuredBuffer<float3> featurePoints2;
 StructuredBuffer<float3> featurePoints3;
 
 RWTexture3D<float4> Result;
+Texture3D PerlinNoise;
+
 
 static const int3 CellOffsets[] =
 {
@@ -92,4 +95,17 @@ void CSWorley3D(uint3 id : SV_DispatchThreadID)
     float worley = worley1 * 0.625 + worley2 * 0.25 + worley3 * 0.125;
 
     Result[id.xyz] = Result[id.xyz] * (1 - channelMask) + worley * channelMask;
+}
+
+float remap(float value, float fromMin, float fromMax, float toMin, float toMax)
+{
+    return toMin + (value - fromMin) * (toMax - toMin) / (fromMax - fromMin);
+}
+
+[numthreads(8,8,8)]
+void CSRemapPerlin(uint3 id : SV_DispatchThreadID)
+{
+    float perlin = PerlinNoise[id.xyz] * channelMask;
+    float worley = Result[id.xyz] * channelMask;
+    Result[id.xyz] = Result[id.xyz] * (1 - channelMask) + remap(perlin, worley - 1, 1, 0, 1) * channelMask;
 }

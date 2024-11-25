@@ -10,6 +10,13 @@ public class NoiseGenerator : MonoBehaviour
     public Material displayMaterial;
     [Range(0.0f, 1.0f)] public float sliceDepth = 0.5f;
     public MeshRenderer visualizer;
+
+    [Button]
+    private void ShowShape()
+    {
+        visualizer.sharedMaterial = displayMaterial;
+        visualizer.sharedMaterial.SetTexture("_BaseMap", shapeTexture);
+    }
     
     [Header("Worley")]
     public int resolution = 128;
@@ -128,6 +135,20 @@ public class NoiseGenerator : MonoBehaviour
         // TODO: Implement cloud noise generation
         // also all fbm functions should be normalized to 0-1 already
         // remember to change channel mask in between
+
+        var perlin = GeneratePerlinTexture();
+        var worley = GenerateWorleyTexture();
+        
+        int kernel = compute.FindKernel("CSRemapPerlin");
+        compute.SetTexture(kernel, "Result", worley);
+        compute.SetTexture(kernel, "PerlinNoise", perlin);
+        
+        int threadsPerGroup = Mathf.CeilToInt(resolution / (float) 8);
+        compute.Dispatch(kernel, threadsPerGroup, threadsPerGroup, threadsPerGroup);
+        
+        visualizer.sharedMaterial = displayMaterial;
+        visualizer.sharedMaterial.SetTexture("_BaseMap", worley);
+        shapeTexture = worley;
     }
     
     private void CreateRenderTexture(ref RenderTexture renderTexture, int resolution, string name)
